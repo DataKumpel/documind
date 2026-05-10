@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from passlib.hash import bcrypt
+import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -25,12 +25,17 @@ security = HTTPBearer()
 # ── Password Hashing ──────────────────────────────────────────────────
 def hash_password(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
-    return bcrypt.hash(password)
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+    return hashed.decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against a bcrypt hash."""
-    return bcrypt.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"),
+        hashed_password.encode("utf-8")
+    )
 
 
 # ── JWT ───────────────────────────────────────────────────────────────

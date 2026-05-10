@@ -42,6 +42,8 @@ services:
         condition: service_healthy
     networks:
       - documind-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # ── Vite Frontend (Dev) ─────────────────────────────────────────────
   frontend:
@@ -60,24 +62,6 @@ services:
     networks:
       - documind-network
 
-  # ── Ollama (LLM with GPU) ──────────────────────────────────────────
-  ollama:
-    image: ollama/ollama:latest
-    container_name: documind-ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    networks:
-      - documind-network
 
 # ── Networks ────────────────────────────────────────────────────────
 networks:
@@ -88,5 +72,4 @@ networks:
 volumes:
   postgres_data:
   uploads_data:
-  ollama_data:
   frontend_node_modules:
