@@ -14,6 +14,7 @@ from .database import init_db
 
 from .routers.auth import router as auth_router
 from .routers.admin import router as admin_router
+from .routers.documents import router as documents_router
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(documents_router)
 
 
 # ── Health Check ──────────────────────────────────────────────────────
