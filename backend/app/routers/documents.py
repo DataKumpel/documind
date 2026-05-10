@@ -132,6 +132,24 @@ async def list_documents(
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# DOCUMENT TYPES (public — for upload dropdown)
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/types", response_model=list[DocumentTypeRead])
+async def list_document_types(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all document types (for upload dropdown). Requires auth but not admin."""
+    result = await db.execute(
+        select(DocumentType)
+        .options(selectinload(DocumentType.fields))
+        .order_by(DocumentType.name)
+    )
+    return [DocumentTypeRead.model_validate(dt) for dt in result.scalars().all()]
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # GET SINGLE
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -215,19 +233,3 @@ async def delete_document(
     await db.commit()
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# DOCUMENT TYPES (public — for upload dropdown)
-# ═══════════════════════════════════════════════════════════════════════
-
-@router.get("/types", response_model=list[DocumentTypeRead])
-async def list_document_types(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """List all document types (for upload dropdown). Requires auth but not admin."""
-    result = await db.execute(
-        select(DocumentType)
-        .options(selectinload(DocumentType.fields))
-        .order_by(DocumentType.name)
-    )
-    return [DocumentTypeRead.model_validate(dt) for dt in result.scalars().all()]

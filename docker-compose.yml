@@ -23,6 +23,16 @@ services:
     networks:
       - documind-network
 
+  # ── Ollama / LLM ────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: documind-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - documind-network
+
   # ── FastAPI Backend ─────────────────────────────────────────────────
   backend:
     build:
@@ -73,3 +83,4 @@ volumes:
   postgres_data:
   uploads_data:
   frontend_node_modules:
+  ollama_data:
