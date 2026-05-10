@@ -149,5 +149,5 @@ export const adminApi = {
 
 // ── Document Types (public — for upload dropdown) ────────────────────
 export const publicApi = {
-  listDocTypes: () => api.get<DocumentType[]>('/admin/document-types'),
+  listDocTypes: () => api.get<DocumentType[]>('/documents/types'),
 }
