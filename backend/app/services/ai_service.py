@@ -126,14 +126,16 @@ async def analyze_document(
     )
 
     try:
-        response = ollama_client.chat(
+        client = ollama_client.AsyncClient(host=settings.OLLAMA_BASE_URL)
+        response = await client.chat(
             model=settings.OLLAMA_MODEL,
             messages=[{"role": "user", "content": prompt}],
             format=schema,
             options={"temperature": 0.1},  # Low temperature for deterministic extraction
         )
 
-        content = response.message.content
+        content = response["message"]["content"] if isinstance(response, dict) else response.message.content
+
         logger.info(f"Ollama response received: {len(content)} chars")
 
         # Parse the JSON response
