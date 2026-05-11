@@ -16,6 +16,9 @@ from .routers.auth import router as auth_router
 from .routers.admin import router as admin_router
 from .routers.documents import router as documents_router
 
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
 logger = logging.getLogger(__name__)
 
 # ── Configure logging ─────────────────────────────────────────────────
@@ -57,6 +60,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Error Handling ────────────────────────────────────────────────────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception on {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Ein interner Serverfehler ist aufgetreten. Bitte versuchen Sie es später erneut."},
+    )
 
 
 # ── Routers ───────────────────────────────────────────────────────────

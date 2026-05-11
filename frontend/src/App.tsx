@@ -13,6 +13,8 @@ import DashboardPage from './pages/DashboardPage'
 import DocumentPage from './pages/DocumentPage'
 import AdminPage from './pages/AdminPage'
 
+import { Toaster } from 'react-hot-toast'
+
 export default function App() {
   // Restore auth state (token + user) from localStorage on page reload,
   // otherwise the Zustand store would be empty and the user would be logged out.
@@ -20,7 +22,9 @@ export default function App() {
   useEffect(() => { hydrate() }, [hydrate])
 
   return (
-    <Routes>
+    <>
+      <Toaster position="top-right" />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route element={<ProtectedRoute />}>
@@ -33,5 +37,6 @@ export default function App() {
         </Route>
       </Route>
     </Routes>
+    </>
   )
 }

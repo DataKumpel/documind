@@ -26,6 +26,9 @@ async def _mark_processing(document: Document, db: AsyncSession) -> None:
 async def _extract_and_store_text(document: Document, db: AsyncSession) -> str:
     """Step 2: Extract text from PDF (PyPDF2 → OCR fallback) and persist it."""
     text, method = await extract_text(document.filepath)
+    if not text.strip():
+        raise Exception("Kein Text im Dokument gefunden (weder über Text-Extraktion noch über OCR).")
+
     document.raw_text = text
     await db.commit()
     logger.info(f"Text extracted ({method}): {len(text)} chars")

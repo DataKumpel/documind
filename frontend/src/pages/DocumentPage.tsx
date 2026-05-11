@@ -174,9 +174,20 @@ export default function DocumentPage() {
               ))}
             </div>
           ) : (
-            <p className="text-surface-200 text-center py-8">
-              {isProcessing ? 'Daten werden gerade extrahiert...' : 'Keine extrahierten Daten vorhanden.'}
-            </p>
+            isProcessing ? (
+              <div className="space-y-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-4 bg-surface-700/50 rounded w-1/4 mb-2"></div>
+                    <div className="h-10 bg-surface-800/50 rounded-lg w-full"></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-surface-200 text-center py-8">
+                Keine extrahierten Daten vorhanden.
+              </p>
+            )
           )
         ) : (
           <div className="max-h-[60vh] overflow-auto">

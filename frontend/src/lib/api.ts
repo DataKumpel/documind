@@ -4,6 +4,7 @@
  */
 
 import axios from 'axios'
+import toast from 'react-hot-toast'
 
 const api = axios.create({
   baseURL: '/api',
@@ -30,6 +31,10 @@ api.interceptors.response.use(
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login'
       }
+    } else if (error.response?.data?.detail) {
+      toast.error(error.response.data.detail)
+    } else {
+      toast.error('Ein unerwarteter Fehler ist aufgetreten.')
     }
     return Promise.reject(error)
   }
