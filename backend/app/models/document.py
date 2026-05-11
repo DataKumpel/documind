@@ -25,6 +25,7 @@ class Document(SQLModel, table=True):
     upload_date: datetime = Field(default_factory=datetime.utcnow)
     status: str = Field(default="pending", max_length=20)  # pending | processing | completed | failed
     raw_text: str | None = Field(default=None, sa_column=Column(Text))
+    extraction_method: str | None = Field(default=None, max_length=20)
     extracted_data: dict | None = Field(default=None, sa_column=Column(JSON))
     error_message: str | None = Field(default=None, sa_column=Column(Text))
 

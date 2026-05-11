@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { documentsApi, type Document as DocType } from '../lib/api'
 import { useDocumentStore } from '../stores/documentStore'
+import { useAuthStore } from '../stores/authStore'
 import StatusBadge from '../components/ui/StatusBadge'
 import toast from 'react-hot-toast'
 
@@ -12,6 +13,7 @@ export default function DocumentPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const updateDocument = useDocumentStore((s) => s.updateDocument)
+  const user = useAuthStore((s) => s.user)
 
   const [document, setDocument] = useState<DocType | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -191,6 +193,16 @@ export default function DocumentPage() {
           )
         ) : (
           <div className="max-h-[60vh] overflow-auto">
+            {user?.is_admin && document.extraction_method && (
+              <div className="mb-4">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-brand-500/10 text-brand-400 border border-brand-500/20">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                  </svg>
+                  Methode: {document.extraction_method === 'pypdf2' ? 'Nativer PDF-Text (PyPDF2)' : 'Texterkennung (OCR)'}
+                </span>
+              </div>
+            )}
             {document.raw_text ? (
               <pre className="text-sm text-surface-100 whitespace-pre-wrap font-mono leading-relaxed">
                 {document.raw_text}

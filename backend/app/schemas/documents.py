@@ -14,6 +14,7 @@ class DocumentRead(BaseModel):
     document_type_id: int | None
     document_type_name: str | None = None
     raw_text: str | None = None
+    extraction_method: str | None = None
     extracted_data: dict | None = None
     error_message: str | None = None
 

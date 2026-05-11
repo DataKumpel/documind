@@ -30,6 +30,7 @@ async def _extract_and_store_text(document: Document, db: AsyncSession) -> str:
         raise Exception("Kein Text im Dokument gefunden (weder über Text-Extraktion noch über OCR).")
 
     document.raw_text = text
+    document.extraction_method = method
     await db.commit()
     logger.info(f"Text extracted ({method}): {len(text)} chars")
     return text
