@@ -56,7 +56,7 @@ graph TD
 1. **Repository klonen**
 
    ```bash
-   git clone https://github.com/yourusername/documind.git
+   git clone https://codeberg.org/DerKumpel/documind.git
    cd documind
    ```
 
