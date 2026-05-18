@@ -84,6 +84,7 @@ export interface Document {
   status: 'pending' | 'processing' | 'completed' | 'failed'
   document_type_id: number | null
   document_type_name: string | null
+  user_email?: string | null
   raw_text: string | null
   extraction_method?: 'pypdf2' | 'ocr' | null
   extracted_data: Record<string, unknown> | null

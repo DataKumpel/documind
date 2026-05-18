@@ -108,11 +108,14 @@ async def list_documents(
     """List all documents for the current user (admins see all)."""
     if current_user.is_admin:
         result = await db.execute(
-            select(Document).order_by(Document.upload_date.desc())
+            select(Document)
+            .options(selectinload(Document.user))
+            .order_by(Document.upload_date.desc())
         )
     else:
         result = await db.execute(
             select(Document)
+            .options(selectinload(Document.user))
             .where(Document.user_id == current_user.id)
             .order_by(Document.upload_date.desc())
         )
@@ -127,6 +130,8 @@ async def list_documents(
             dt_result = await db.get(DocumentType, doc.document_type_id)
             if dt_result:
                 doc_read.document_type_name = dt_result.name
+        if doc.user:
+            doc_read.user_email = doc.user.email
         response.append(doc_read)
 
     return response

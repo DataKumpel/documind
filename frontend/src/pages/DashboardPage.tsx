@@ -4,6 +4,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useDocumentStore } from '../stores/documentStore'
+import { useAuthStore } from '../stores/authStore'
 import StatusBadge from '../components/ui/StatusBadge'
 import UploadDialog from '../components/UploadDialog'
 
@@ -14,6 +15,7 @@ export default function DashboardPage() {
   const fetchDocuments = useDocumentStore((s) => s.fetchDocuments)
   const fetchDocumentTypes = useDocumentStore((s) => s.fetchDocumentTypes)
   const deleteDocument = useDocumentStore((s) => s.deleteDocument)
+  const user = useAuthStore((s) => s.user)
 
   const [showUpload, setShowUpload] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -79,6 +81,9 @@ export default function DashboardPage() {
             <tr className="border-b border-surface-700">
               <th className="text-left py-3 px-4 text-xs font-medium text-surface-200 uppercase tracking-wider">Datei</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-surface-200 uppercase tracking-wider">Typ</th>
+              {user?.is_admin && (
+                <th className="text-left py-3 px-4 text-xs font-medium text-surface-200 uppercase tracking-wider">Benutzer</th>
+              )}
               <th className="text-left py-3 px-4 text-xs font-medium text-surface-200 uppercase tracking-wider">Status</th>
               <th className="text-left py-3 px-4 text-xs font-medium text-surface-200 uppercase tracking-wider">Datum</th>
               <th className="text-right py-3 px-4 text-xs font-medium text-surface-200 uppercase tracking-wider">Aktionen</th>
@@ -87,13 +92,13 @@ export default function DashboardPage() {
           <tbody className="divide-y divide-surface-800">
             {isLoading && documents.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-surface-200">
+                <td colSpan={user?.is_admin ? 6 : 5} className="py-12 text-center text-surface-200">
                   <LoadingSpinner />
                 </td>
               </tr>
             ) : documents.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-12 text-center text-surface-200">
+                <td colSpan={user?.is_admin ? 6 : 5} className="py-12 text-center text-surface-200">
                   <p className="text-lg mb-2">Keine Dokumente vorhanden</p>
                   <p className="text-sm">Laden Sie Ihr erstes PDF hoch, um zu starten.</p>
                 </td>
@@ -116,6 +121,11 @@ export default function DashboardPage() {
                   <td className="py-3 px-4 text-sm text-surface-200">
                     {doc.document_type_name ?? '—'}
                   </td>
+                  {user?.is_admin && (
+                    <td className="py-3 px-4 text-sm text-surface-200 truncate max-w-[150px]" title={doc.user_email || ''}>
+                      {doc.user_email ?? '—'}
+                    </td>
+                  )}
                   <td className="py-3 px-4">
                     <StatusBadge status={doc.status} />
                   </td>
