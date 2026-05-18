@@ -141,11 +141,13 @@ erDiagram
 Wenn sich das Datenbank-Schema ändert (z. B. durch neue Spalten in Modellen), müssen diese Änderungen mit Alembic angewendet werden. Da das Backend in einem Docker-Container läuft, werden die Befehle innerhalb des Containers ausgeführt.
 
 1. **Neue Migration erstellen** (nur nötig, wenn Modelle in `backend/app/models/` geändert wurden):
+
    ```bash
    docker exec documind-backend alembic revision --autogenerate -m "Beschreibung der Änderung"
    ```
 
 2. **Migrationen anwenden** (um die Datenbankstruktur auf den neuesten Stand zu bringen):
+
    ```bash
    docker exec documind-backend alembic upgrade head
    ```

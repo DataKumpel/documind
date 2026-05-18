@@ -25,7 +25,6 @@ from ..schemas.admin import (
 )
 from ..schemas.documents import DocumentRead
 from ..services.auth_service import get_current_admin, hash_password
-from sqlalchemy import func
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
