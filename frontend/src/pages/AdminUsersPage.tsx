@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { adminApi, type AdminUserStats, type AdminDatabaseStats, type Document } from '../lib/api'
+import { useAuthStore } from '../stores/authStore'
 import toast from 'react-hot-toast'
 
 function formatBytes(bytes: number) {
@@ -8,6 +9,7 @@ function formatBytes(bytes: number) {
 }
 
 export default function AdminUsersPage() {
+  const currentUser = useAuthStore((s) => s.user)
   const [users, setUsers] = useState<AdminUserStats[]>([])
   const [stats, setStats] = useState<AdminDatabaseStats | null>(null)
   const [deletedDocs, setDeletedDocs] = useState<Document[]>([])
@@ -163,7 +165,28 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-700">
-              {users.map(u => (
+              {users.map(u => {
+                const isSelf = currentUser?.id === u.id
+                const activeAdminCount = users.filter(x => x.is_admin && x.is_active).length
+                // Protect if this user is the only active admin
+                const isLastAdmin = u.is_admin && u.is_active && activeAdminCount <= 1
+
+                const adminBtnDisabled = isSelf || (isLastAdmin && u.is_admin)
+                const activeBtnDisabled = isSelf || isLastAdmin
+
+                const adminBtnTitle = isSelf
+                  ? 'Sie können sich selbst keine Admin-Rechte entziehen'
+                  : isLastAdmin && u.is_admin
+                  ? 'Mindestens ein aktiver Admin muss verbleiben'
+                  : u.is_admin ? 'Admin-Rechte entziehen' : 'Admin-Rechte erteilen'
+
+                const activeBtnTitle = isSelf
+                  ? 'Sie können sich selbst nicht sperren'
+                  : isLastAdmin
+                  ? 'Mindestens ein aktiver Admin muss verbleiben'
+                  : u.is_active ? 'Benutzer sperren' : 'Benutzer entsperren'
+
+                return (
                 <tr key={u.id} className="hover:bg-surface-800/30 transition-colors">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -171,7 +194,14 @@ export default function AdminUsersPage() {
                         {u.email[0].toUpperCase()}
                       </div>
                       <div>
-                        <div className="font-medium text-surface-50">{u.email}</div>
+                        <div className="font-medium text-surface-50">
+                          {u.email}
+                          {isSelf && (
+                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand-500/20 text-brand-300 align-middle">
+                              Sie
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-surface-300">
                           ID: {u.id} • Erstellt: {new Date(u.created_at).toLocaleDateString('de-DE')}
                         </div>
@@ -215,31 +245,42 @@ export default function AdminUsersPage() {
                       <button 
                         onClick={() => setPwModalUser(u)}
                         className="px-3 py-1.5 rounded bg-surface-800 hover:bg-surface-700 text-xs font-medium text-surface-100 transition-colors cursor-pointer"
-                        title="Neues Passwort"
+                        title="Neues Passwort setzen"
                       >
                         Passwort
                       </button>
                       <button 
-                        onClick={() => handleToggleAdmin(u)}
-                        className="px-3 py-1.5 rounded bg-surface-800 hover:bg-surface-700 text-xs font-medium text-surface-100 transition-colors cursor-pointer"
-                        title="Admin umschalten"
+                        onClick={() => !adminBtnDisabled && handleToggleAdmin(u)}
+                        disabled={adminBtnDisabled}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          adminBtnDisabled
+                            ? 'bg-surface-800/40 text-surface-500 cursor-not-allowed opacity-50'
+                            : 'bg-surface-800 hover:bg-surface-700 text-surface-100 cursor-pointer'
+                        }`}
+                        title={adminBtnTitle}
                       >
                         Admin
                       </button>
                       <button 
-                        onClick={() => handleToggleActive(u)}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
-                          u.is_active 
-                            ? 'bg-status-failed/10 text-status-failed hover:bg-status-failed/20' 
-                            : 'bg-status-completed/10 text-status-completed hover:bg-status-completed/20'
+                        onClick={() => !activeBtnDisabled && handleToggleActive(u)}
+                        disabled={activeBtnDisabled}
+                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                          activeBtnDisabled
+                            ? 'opacity-50 cursor-not-allowed ' + (u.is_active
+                              ? 'bg-status-failed/5 text-status-failed/40'
+                              : 'bg-status-completed/5 text-status-completed/40')
+                            : u.is_active 
+                              ? 'bg-status-failed/10 text-status-failed hover:bg-status-failed/20 cursor-pointer' 
+                              : 'bg-status-completed/10 text-status-completed hover:bg-status-completed/20 cursor-pointer'
                         }`}
+                        title={activeBtnTitle}
                       >
                         {u.is_active ? 'Sperren' : 'Entsperren'}
                       </button>
                     </div>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

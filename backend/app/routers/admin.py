@@ -308,10 +308,22 @@ async def toggle_user_active(
     """Activate or deactivate a user."""
     if user_id == admin.id:
         raise HTTPException(status_code=400, detail="Sie können sich nicht selbst deaktivieren.")
-        
+
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+
+    # Prevent deactivating the last active admin
+    if user.is_admin and user.is_active:
+        active_admins_result = await db.execute(
+            select(User).where(User.is_admin.is_(True), User.is_active.is_(True))
+        )
+        active_admins = active_admins_result.scalars().all()
+        if len(active_admins) <= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Es muss mindestens ein aktiver Administrator im System verbleiben.",
+            )
 
     user.is_active = not user.is_active
     await db.commit()
@@ -328,10 +340,22 @@ async def toggle_user_admin(
     """Promote or demote a user to/from admin."""
     if user_id == admin.id:
         raise HTTPException(status_code=400, detail="Sie können sich nicht selbst die Admin-Rechte entziehen.")
-        
+
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+
+    # Prevent removing admin rights from the last active admin
+    if user.is_admin:
+        active_admins_result = await db.execute(
+            select(User).where(User.is_admin.is_(True), User.is_active.is_(True))
+        )
+        active_admins = active_admins_result.scalars().all()
+        if len(active_admins) <= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Es muss mindestens ein aktiver Administrator im System verbleiben.",
+            )
 
     user.is_admin = not user.is_admin
     await db.commit()
