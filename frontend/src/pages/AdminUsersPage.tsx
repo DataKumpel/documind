@@ -195,9 +195,20 @@ export default function AdminUsersPage() {
                   <td className="px-5 py-4 text-right">
                     <span className="font-medium text-surface-100">{u.document_count}</span>
                   </td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="font-medium text-surface-100">{formatBytes(u.total_upload_bytes)}</div>
-                    <div className="text-xs text-surface-400">{u.percentage_of_total_size}%</div>
+                  <td className="px-5 py-4">
+                    <div className="font-medium text-surface-100 mb-1.5">{formatBytes(u.total_upload_bytes)}</div>
+                    <div className="relative w-full min-w-[120px] h-3 bg-surface-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(u.percentage_of_total_size, 100)}%`,
+                          background: 'linear-gradient(90deg, #f97316, #fb923c)',
+                        }}
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white drop-shadow-sm">
+                        {u.percentage_of_total_size > 0 ? `${u.percentage_of_total_size}%` : '—'}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-5 py-4 text-center">
                     <div className="flex items-center justify-center gap-2">
