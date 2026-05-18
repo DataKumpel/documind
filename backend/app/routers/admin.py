@@ -248,7 +248,7 @@ async def list_users(
     # Calculate global stats
     total_users = len(users)
     
-    docs_result = await db.execute(select(Document).where(not Document.is_deleted))
+    docs_result = await db.execute(select(Document).where(Document.is_deleted.is_(False)))
     documents = docs_result.scalars().all()
     total_documents = len(documents)
     total_database_bytes = sum(doc.file_size for doc in documents)
@@ -353,7 +353,7 @@ async def list_deleted_documents(
     result = await db.execute(
         select(Document)
         .options(selectinload(Document.user))
-        .where(Document.is_deleted)
+        .where(Document.is_deleted.is_(True))
         .order_by(Document.upload_date.desc())
     )
     documents = result.scalars().all()

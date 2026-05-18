@@ -111,7 +111,7 @@ async def list_documents(
         result = await db.execute(
             select(Document)
             .options(selectinload(Document.user))
-            .where(not Document.is_deleted)
+            .where(Document.is_deleted.is_(False))
             .order_by(Document.upload_date.desc())
         )
     else:
@@ -119,7 +119,7 @@ async def list_documents(
             select(Document)
             .options(selectinload(Document.user))
             .where(Document.user_id == current_user.id)
-            .where(not Document.is_deleted)
+            .where(Document.is_deleted.is_(False))
             .order_by(Document.upload_date.desc())
         )
 
