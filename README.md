@@ -83,6 +83,20 @@ graph TD
    - Frontend: [http://localhost:5173](http://localhost:5173)
    - Backend API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
+### Datenbank-Migrationen (Alembic)
+
+Wenn sich das Datenbank-Schema ändert (z. B. durch neue Spalten in Modellen), müssen diese Änderungen mit Alembic angewendet werden. Da das Backend in einem Docker-Container läuft, werden die Befehle innerhalb des Containers ausgeführt.
+
+1. **Neue Migration erstellen** (nur nötig, wenn Modelle in `backend/app/models/` geändert wurden):
+   ```bash
+   docker exec documind-backend alembic revision --autogenerate -m "Beschreibung der Änderung"
+   ```
+
+2. **Migrationen anwenden** (um die Datenbankstruktur auf den neuesten Stand zu bringen):
+   ```bash
+   docker exec documind-backend alembic upgrade head
+   ```
+
 ## API-Dokumentation (Übersicht)
 
 Die vollständige Swagger-Dokumentation ist unter `/docs` verfügbar, sobald
