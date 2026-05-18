@@ -9,6 +9,6 @@ try:
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     h = pwd_context.hash("password123")
     print("Hash:", h)
-except Exception as e:
+except Exception:
     import traceback
     traceback.print_exc()

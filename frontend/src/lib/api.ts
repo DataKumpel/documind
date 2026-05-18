@@ -112,6 +112,8 @@ export const documentsApi = {
 
   get: (id: number) => api.get<Document>(`/documents/${id}`),
 
+  getFile: (id: number) => api.get<Blob>(`/documents/${id}/file`, { responseType: 'blob' }),
+
   upload: (file: File, documentTypeId: number, onProgress?: (pct: number) => void) => {
     const formData = new FormData()
     formData.append('file', file)

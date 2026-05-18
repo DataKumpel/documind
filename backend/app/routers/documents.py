@@ -9,6 +9,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
@@ -175,6 +176,36 @@ async def get_document(
             doc_read.document_type_name = dt.name
 
     return doc_read
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# GET FILE
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/{document_id}/file")
+async def get_document_file(
+    document_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get the original PDF file of a document."""
+    document = await db.get(Document, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden.")
+
+    # Only owner or admin can access
+    if document.user_id != current_user.id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Kein Zugriff auf dieses Dokument.")
+
+    filepath = Path(document.filepath)
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden.")
+
+    return FileResponse(
+        path=filepath, 
+        media_type="application/pdf", 
+        filename=document.filename
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════

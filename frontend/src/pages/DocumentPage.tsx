@@ -20,22 +20,45 @@ export default function DocumentPage() {
   const [editedData, setEditedData] = useState<Record<string, unknown> | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'data' | 'text'>('data')
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [isPdfVisible, setIsPdfVisible] = useState(false)
 
   useEffect(() => {
     if (!id) return
+    let active = true
+    let currentPdfUrl: string | null = null
+
     const load = async () => {
       try {
         const { data } = await documentsApi.get(Number(id))
+        if (!active) return
         setDocument(data)
         setEditedData(data.extracted_data)
+
+        try {
+          const pdfRes = await documentsApi.getFile(Number(id))
+          if (!active) return
+          currentPdfUrl = URL.createObjectURL(pdfRes.data)
+          setPdfUrl(currentPdfUrl)
+        } catch {
+          console.error('Konnte PDF nicht laden')
+        }
       } catch {
+        if (!active) return
         toast.error('Dokument konnte nicht geladen werden.')
         navigate('/')
       } finally {
-        setIsLoading(false)
+        if (active) setIsLoading(false)
       }
     }
     load()
+
+    return () => {
+      active = false
+      if (currentPdfUrl) {
+        URL.revokeObjectURL(currentPdfUrl)
+      }
+    }
   }, [id, navigate])
 
   // Poll while processing
@@ -215,6 +238,39 @@ export default function DocumentPage() {
           </div>
         )}
       </div>
+
+      {/* PDF Viewer Toggle */}
+      <div className="mt-8 flex justify-center">
+        <button
+          onClick={() => setIsPdfVisible(!isPdfVisible)}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-surface-800 hover:bg-surface-700 text-surface-200 hover:text-surface-50 text-sm font-medium transition-colors cursor-pointer border border-surface-700 hover:border-surface-600"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            {isPdfVisible ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            )}
+          </svg>
+          {isPdfVisible ? 'Original-PDF ausblenden' : 'Original-PDF anzeigen'}
+        </button>
+      </div>
+
+      {/* PDF Viewer */}
+      {isPdfVisible && (
+        <div className="mt-6 h-[80vh] glass rounded-xl overflow-hidden animate-fade-in relative border border-surface-700">
+          {pdfUrl ? (
+            <iframe src={`${pdfUrl}#toolbar=0`} className="w-full h-full border-0 bg-surface-900" title="Original PDF" />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-surface-200 bg-surface-900">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+                <p>PDF wird geladen...</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
