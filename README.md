@@ -33,6 +33,59 @@ graph TD
     end
 ```
 
+### Datenbank-Struktur
+
+Die relationale Datenbank (PostgreSQL) nutzt folgendes Schema, um Benutzer, Dokumente und dynamische Felddefinitionen abzuspeichern:
+
+```mermaid
+erDiagram
+    users {
+        int id PK
+        string email UK
+        string hashed_password
+        boolean is_admin
+        boolean is_active
+        datetime created_at
+    }
+
+    document_types {
+        int id PK
+        string name UK
+        string description
+        datetime created_at
+    }
+
+    field_definitions {
+        int id PK
+        int document_type_id FK
+        string field_name
+        string field_type
+        boolean required
+        string description
+        int sort_order
+    }
+
+    documents {
+        int id PK
+        int user_id FK
+        int document_type_id FK
+        string filename
+        string filepath
+        datetime upload_date
+        string status
+        int file_size
+        boolean is_deleted
+        text raw_text
+        string extraction_method
+        json extracted_data
+        text error_message
+    }
+
+    users ||--o{ documents : "uploads"
+    document_types ||--o{ documents : "categorizes"
+    document_types ||--o{ field_definitions : "defines"
+```
+
 ### Komponenten
 
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS v4,
