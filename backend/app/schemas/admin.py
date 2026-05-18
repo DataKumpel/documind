@@ -90,6 +90,7 @@ class AdminUserRead(BaseModel):
     email: str
     is_admin: bool
     is_active: bool
+    theme: str
     created_at: datetime
     document_count: int = 0
     total_upload_bytes: int = 0

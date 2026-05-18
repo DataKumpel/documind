@@ -10,7 +10,7 @@ from sqlmodel import select
 
 from ..database import get_db
 from ..models import User
-from ..schemas.auth import TokenResponse, UserCreate, UserLogin, UserRead
+from ..schemas.auth import TokenResponse, UserCreate, UserLogin, UserRead, UserThemeUpdate
 from ..services.auth_service import (
     create_access_token,
     get_current_user,
@@ -88,4 +88,18 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserRead)
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get the current user's profile."""
+    return UserRead.model_validate(current_user)
+
+
+@router.put("/me/theme", response_model=UserRead)
+async def update_theme(
+    data: UserThemeUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update the current user's theme preference."""
+    current_user.theme = data.theme
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
     return UserRead.model_validate(current_user)

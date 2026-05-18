@@ -52,6 +52,7 @@ export interface User {
   email: string
   is_admin: boolean
   is_active: boolean
+  theme: 'light' | 'dark'
   created_at: string
 }
 
@@ -143,6 +144,9 @@ export const authApi = {
     api.post<TokenResponse>('/auth/login', { email, password }),
 
   me: () => api.get<User>('/auth/me'),
+
+  updateTheme: (theme: 'light' | 'dark') =>
+    api.put<User>('/auth/me/theme', { theme }),
 }
 
 // ── Documents ────────────────────────────────────────────────────────

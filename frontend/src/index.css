@@ -2,6 +2,31 @@
 
 /* ── Google Fonts (loaded via index.html <link>) ─────────────────────── */
 
+:root {
+  /* LIGHT MODE (Modern, clean light theme) */
+  --surface-50: oklch(0.15 0.015 250);
+  --surface-100: oklch(0.35 0.015 250);
+  --surface-200: oklch(0.45 0.015 250);
+  --surface-700: oklch(0.92 0.005 250);
+  --surface-800: oklch(0.96 0.005 250);
+  --surface-850: oklch(0.975 0.005 250);
+  --surface-900: oklch(0.99 0.005 250);
+  --surface-950: oklch(1.0 0 250);
+  color-scheme: light;
+}
+
+:root.dark {
+  /* DARK MODE (Original default) */
+  --surface-50: oklch(0.98 0.005 250);
+  --surface-100: oklch(0.93 0.008 250);
+  --surface-200: oklch(0.85 0.01 250);
+  --surface-700: oklch(0.25 0.015 250);
+  --surface-800: oklch(0.20 0.015 250);
+  --surface-850: oklch(0.17 0.015 250);
+  --surface-900: oklch(0.13 0.015 250);
+  --surface-950: oklch(0.10 0.015 250);
+  color-scheme: dark;
+}
 /* ── Custom Theme ────────────────────────────────────────────────────── */
 @theme {
   /* ── Brand Colors (oklch) ─────────────────────────────────────────── */
@@ -22,14 +47,14 @@
   --color-accent-600: oklch(0.55 0.15 175);
 
   /* ── Surface (Dark Theme) ─────────────────────────────────────────── */
-  --color-surface-50: oklch(0.98 0.005 250);
-  --color-surface-100: oklch(0.93 0.008 250);
-  --color-surface-200: oklch(0.85 0.01 250);
-  --color-surface-700: oklch(0.25 0.015 250);
-  --color-surface-800: oklch(0.20 0.015 250);
-  --color-surface-850: oklch(0.17 0.015 250);
-  --color-surface-900: oklch(0.13 0.015 250);
-  --color-surface-950: oklch(0.10 0.015 250);
+  --color-surface-50: var(--surface-50);
+  --color-surface-100: var(--surface-100);
+  --color-surface-200: var(--surface-200);
+  --color-surface-700: var(--surface-700);
+  --color-surface-800: var(--surface-800);
+  --color-surface-850: var(--surface-850);
+  --color-surface-900: var(--surface-900);
+  --color-surface-950: var(--surface-950);
 
   /* ── Status Colors ────────────────────────────────────────────────── */
   --color-status-pending: oklch(0.80 0.15 85);
@@ -65,7 +90,7 @@
 
 /* ── Base Styles ────────────────────────────────────────────────────── */
 html {
-  color-scheme: dark;
+  /* color-scheme handled in :root */
 }
 
 body {
@@ -103,9 +128,9 @@ body {
 
 /* ── Glass Effect Utility ───────────────────────────────────────────── */
 .glass {
-  background: oklch(0.20 0.015 250 / 0.6);
+  background: color-mix(in oklch, var(--color-surface-800) 60%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid oklch(1 0 0 / 0.08);
+  border: 1px solid color-mix(in oklch, var(--color-surface-100) 10%, transparent);
 }
 
 /* ── Card Hover ─────────────────────────────────────────────────────── */

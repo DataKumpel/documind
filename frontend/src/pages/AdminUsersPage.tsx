@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
                           background: 'linear-gradient(90deg, #f97316, #fb923c)',
                         }}
                       />
-                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white drop-shadow-sm">
+                      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-surface-50 drop-shadow-sm">
                         {u.percentage_of_total_size > 0 ? `${u.percentage_of_total_size}%` : '—'}
                       </span>
                     </div>

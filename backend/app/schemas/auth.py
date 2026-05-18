@@ -23,9 +23,15 @@ class UserRead(BaseModel):
     email: str
     is_admin: bool
     is_active: bool
+    theme: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserThemeUpdate(BaseModel):
+    """Update user theme preference."""
+    theme: str = Field(pattern="^(light|dark)$")
 
 
 class TokenResponse(BaseModel):

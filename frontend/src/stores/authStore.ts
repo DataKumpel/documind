@@ -17,9 +17,10 @@ interface AuthState {
   register: (email: string, password: string) => Promise<boolean>
   logout: () => void
   hydrate: () => void
+  setTheme: (theme: 'light' | 'dark') => Promise<void>
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   user: null,
   isLoading: false,
@@ -30,6 +31,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { data } = await authApi.login(email, password)
       localStorage.setItem('documind_token', data.access_token)
       localStorage.setItem('documind_user', JSON.stringify(data.user))
+      
+      // Apply theme
+      document.documentElement.classList.remove('light', 'dark')
+      document.documentElement.classList.add(data.user.theme || 'dark')
+      
       set({ token: data.access_token, user: data.user, isLoading: false })
       toast.success('Erfolgreich angemeldet!')
       return true
@@ -47,6 +53,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { data } = await authApi.register(email, password)
       localStorage.setItem('documind_token', data.access_token)
       localStorage.setItem('documind_user', JSON.stringify(data.user))
+
+      // Apply theme
+      document.documentElement.classList.remove('light', 'dark')
+      document.documentElement.classList.add(data.user.theme || 'dark')
+
       set({ token: data.access_token, user: data.user, isLoading: false })
       toast.success('Registrierung erfolgreich!')
       return true
@@ -61,6 +72,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem('documind_token')
     localStorage.removeItem('documind_user')
+    document.documentElement.classList.remove('light', 'dark')
+    document.documentElement.classList.add('dark')
     set({ token: null, user: null })
     toast.success('Abgemeldet.')
   },
@@ -71,6 +84,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr) as User
+        document.documentElement.classList.remove('light', 'dark')
+        document.documentElement.classList.add(user.theme || 'dark')
         set({ token, user })
       } catch {
         localStorage.removeItem('documind_token')
@@ -78,4 +93,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     }
   },
+
+  setTheme: async (theme) => {
+    const { user } = get()
+    if (!user) return
+
+    try {
+      const { data: updatedUser } = await authApi.updateTheme(theme)
+      localStorage.setItem('documind_user', JSON.stringify(updatedUser))
+      
+      document.documentElement.classList.remove('light', 'dark')
+      document.documentElement.classList.add(theme)
+      
+      set({ user: updatedUser })
+    } catch (err) {
+      toast.error('Theme konnte nicht gespeichert werden.')
+    }
+  }
 }))

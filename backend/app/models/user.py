@@ -19,6 +19,7 @@ class User(SQLModel, table=True):
     hashed_password: str = Field(max_length=255)
     is_admin: bool = Field(default=False)
     is_active: bool = Field(default=True)
+    theme: str = Field(default="dark", max_length=10)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships

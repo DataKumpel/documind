@@ -15,9 +15,16 @@ const navItems = [
 export default function Layout() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const setTheme = useAuthStore((s) => s.setTheme)
   const location = useLocation()
   const [outdatedCount, setOutdatedCount] = useState(0)
   const [bannerDismissed, setBannerDismissed] = useState(false)
+
+  const isDark = user?.theme === 'dark' || (!user?.theme && document.documentElement.classList.contains('dark'))
+
+  const toggleTheme = () => {
+    setTheme(isDark ? 'light' : 'dark')
+  }
 
   const visibleItems = navItems.filter(
     (item) => !item.adminOnly || user?.is_admin
@@ -109,17 +116,26 @@ export default function Layout() {
           </nav>
 
           {/* User info + logout */}
-          <div className="p-4 border-t border-surface-800">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-full bg-brand-600/30 flex items-center justify-center text-brand-300 text-sm font-bold">
-                {user?.email?.[0]?.toUpperCase() ?? '?'}
+          <div className="p-4 border-t border-surface-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-brand-600/30 flex items-center justify-center text-brand-500 font-bold">
+                  {user?.email?.[0]?.toUpperCase() ?? '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-surface-100 truncate">{user?.email}</p>
+                  {user?.is_admin && (
+                    <span className="text-xs text-accent-400">Admin</span>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-surface-100 truncate">{user?.email}</p>
-                {user?.is_admin && (
-                  <span className="text-xs text-accent-400">Admin</span>
-                )}
-              </div>
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 rounded-lg text-surface-200 hover:bg-surface-800 hover:text-brand-400 transition-colors cursor-pointer"
+                title={isDark ? "Light Mode aktivieren" : "Dark Mode aktivieren"}
+              >
+                {isDark ? <SunIcon /> : <MoonIcon />}
+              </button>
             </div>
             <button
               onClick={logout}
@@ -171,6 +187,22 @@ function UsersIcon({ active }: { active?: boolean }) {
   return (
     <svg className={`w-5 h-5 ${active ? 'text-brand-400' : 'text-surface-200'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+    </svg>
+  )
+}
+
+function SunIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+    </svg>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
     </svg>
   )
 }

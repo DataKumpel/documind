@@ -390,6 +390,7 @@ async def list_users(
             email=user.email,
             is_admin=user.is_admin,
             is_active=user.is_active,
+            theme=user.theme,
             created_at=user.created_at,
             document_count=doc_count,
             total_upload_bytes=upload_bytes,
