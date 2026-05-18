@@ -3,6 +3,7 @@ Admin routes: document type and field definition management.
 All routes require admin privileges.
 """
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,15 +22,41 @@ from ..schemas.admin import (
     FieldDefinitionCreate,
     FieldDefinitionRead,
     FieldDefinitionUpdate,
+    OutdatedDocumentInfo,
+    ReanalyzeResult,
     TempPasswordUpdate,
 )
 from ..schemas.documents import DocumentRead
 from ..services.auth_service import get_current_admin, hash_password
+from ..services.pipeline import _run_pipeline_background
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# HELPERS
+# ═══════════════════════════════════════════════════════════════════════
+
+async def _load_doc_type_or_404(doc_type_id: int, db: AsyncSession, with_fields: bool = False) -> DocumentType:
+    """Load a DocumentType by id or raise 404."""
+    query = select(DocumentType).where(DocumentType.id == doc_type_id)
+    if with_fields:
+        query = query.options(selectinload(DocumentType.fields))
+    result = await db.execute(query)
+    doc_type = result.scalar_one_or_none()
+    if not doc_type:
+        raise HTTPException(status_code=404, detail="Dokumenttyp nicht gefunden.")
+    return doc_type
+
+
+async def _bump_schema_version(doc_type: DocumentType, db: AsyncSession) -> None:
+    """Increment schema_version to signal that documents need re-analysis."""
+    doc_type.schema_version += 1
+    await db.commit()
+    logger.info(f"Schema version bumped for '{doc_type.name}': v{doc_type.schema_version}")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -84,11 +111,11 @@ async def list_document_types(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """List all document types with their fields."""
+    """List all document types (including inactive) with their fields."""
     result = await db.execute(
         select(DocumentType)
         .options(selectinload(DocumentType.fields))
-        .order_by(DocumentType.name)
+        .order_by(DocumentType.is_active.desc(), DocumentType.name)
     )
     return [DocumentTypeRead.model_validate(dt) for dt in result.scalars().all()]
 
@@ -100,14 +127,7 @@ async def get_document_type(
     admin: User = Depends(get_current_admin),
 ):
     """Get a single document type with its fields."""
-    result = await db.execute(
-        select(DocumentType)
-        .where(DocumentType.id == doc_type_id)
-        .options(selectinload(DocumentType.fields))
-    )
-    doc_type = result.scalar_one_or_none()
-    if not doc_type:
-        raise HTTPException(status_code=404, detail="Dokumenttyp nicht gefunden.")
+    doc_type = await _load_doc_type_or_404(doc_type_id, db, with_fields=True)
     return DocumentTypeRead.model_validate(doc_type)
 
 
@@ -118,15 +138,8 @@ async def update_document_type(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """Update a document type's name or description."""
-    result = await db.execute(
-        select(DocumentType)
-        .where(DocumentType.id == doc_type_id)
-        .options(selectinload(DocumentType.fields))
-    )
-    doc_type = result.scalar_one_or_none()
-    if not doc_type:
-        raise HTTPException(status_code=404, detail="Dokumenttyp nicht gefunden.")
+    """Update a document type's name, description, or activation state."""
+    doc_type = await _load_doc_type_or_404(doc_type_id, db, with_fields=True)
 
     if data.name is not None:
         # Check for duplicate name
@@ -140,6 +153,9 @@ async def update_document_type(
     if data.description is not None:
         doc_type.description = data.description
 
+    if data.is_active is not None:
+        doc_type.is_active = data.is_active
+
     await db.commit()
     await db.refresh(doc_type)
 
@@ -147,21 +163,118 @@ async def update_document_type(
     return DocumentTypeRead.model_validate(doc_type)
 
 
-@router.delete("/document-types/{doc_type_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document_type(
+@router.delete("/document-types/{doc_type_id}", response_model=dict)
+async def deactivate_document_type(
     doc_type_id: int,
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """Delete a document type and all its field definitions."""
-    result = await db.execute(select(DocumentType).where(DocumentType.id == doc_type_id))
-    doc_type = result.scalar_one_or_none()
-    if not doc_type:
-        raise HTTPException(status_code=404, detail="Dokumenttyp nicht gefunden.")
+    """
+    Soft-delete a document type (sets is_active=False).
 
-    logger.info(f"Document type deleted: {doc_type.name} (by {admin.email})")
-    await db.delete(doc_type)
+    The type and its documents are preserved. Existing documents will be
+    flagged as using a deprecated type. The type no longer appears in the
+    upload dropdown for new documents.
+    """
+    doc_type = await _load_doc_type_or_404(doc_type_id, db)
+
+    # Count affected documents
+    docs_result = await db.execute(
+        select(Document).where(
+            Document.document_type_id == doc_type_id,
+            Document.is_deleted.is_(False),
+        )
+    )
+    affected_count = len(docs_result.scalars().all())
+
+    doc_type.is_active = False
     await db.commit()
+
+    logger.info(f"Document type deactivated: {doc_type.name} ({affected_count} documents affected, by {admin.email})")
+    return {"message": f"Dokumenttyp '{doc_type.name}' wurde deaktiviert.", "affected_documents": affected_count}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# OUTDATED DOCUMENTS & RE-ANALYSIS
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/document-types/{doc_type_id}/outdated-documents", response_model=list[OutdatedDocumentInfo])
+async def list_outdated_documents(
+    doc_type_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """
+    List all documents of a type whose analyzed_schema_version is behind
+    the current schema_version. Used to populate the re-analysis warning modal.
+    """
+    doc_type = await _load_doc_type_or_404(doc_type_id, db)
+
+    result = await db.execute(
+        select(Document).where(
+            Document.document_type_id == doc_type_id,
+            Document.is_deleted.is_(False),
+            Document.status == "completed",
+        )
+    )
+    documents = result.scalars().all()
+
+    outdated = []
+    for doc in documents:
+        if (doc.analyzed_schema_version is None or
+                doc.analyzed_schema_version < doc_type.schema_version):
+            outdated.append(OutdatedDocumentInfo(
+                id=doc.id,
+                filename=doc.filename,
+                upload_date=doc.upload_date,
+                # A document has manual corrections if extracted_data was set
+                # but we cannot distinguish automated from manual without extra tracking.
+                # Treat any non-null extracted_data as potentially manually corrected.
+                has_manual_corrections=doc.extracted_data is not None,
+            ))
+
+    return outdated
+
+
+@router.post("/document-types/{doc_type_id}/reanalyze", response_model=ReanalyzeResult)
+async def reanalyze_all_outdated(
+    doc_type_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """
+    Trigger re-analysis for all outdated completed documents of a type.
+    Resets status to 'pending' and clears extracted_data.
+    """
+    doc_type = await _load_doc_type_or_404(doc_type_id, db)
+
+    result = await db.execute(
+        select(Document).where(
+            Document.document_type_id == doc_type_id,
+            Document.is_deleted.is_(False),
+            Document.status == "completed",
+        )
+    )
+    documents = result.scalars().all()
+
+    triggered = 0
+    for doc in documents:
+        if (doc.analyzed_schema_version is None or
+                doc.analyzed_schema_version < doc_type.schema_version):
+            doc.status = "pending"
+            doc.extracted_data = None
+            doc.analyzed_schema_version = None
+            triggered += 1
+
+    await db.commit()
+
+    # Start background tasks after commit
+    for doc in documents:
+        if doc.status == "pending":
+            asyncio.create_task(_run_pipeline_background(doc.id))
+
+    logger.info(f"Re-analysis triggered for {triggered} documents of type '{doc_type.name}' (by {admin.email})")
+    return ReanalyzeResult(triggered=triggered)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -175,17 +288,17 @@ async def add_field(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """Add a field definition to a document type."""
-    result = await db.execute(select(DocumentType).where(DocumentType.id == doc_type_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Dokumenttyp nicht gefunden.")
+    """Add a field definition to a document type. Bumps schema_version."""
+    doc_type = await _load_doc_type_or_404(doc_type_id, db)
 
     field = FieldDefinition(document_type_id=doc_type_id, **data.model_dump())
     db.add(field)
-    await db.commit()
+    await db.flush()
+
+    await _bump_schema_version(doc_type, db)
     await db.refresh(field)
 
-    logger.info(f"Field added: {field.field_name} to type {doc_type_id} (by {admin.email})")
+    logger.info(f"Field added: {field.field_name} to type '{doc_type.name}' (by {admin.email})")
     return FieldDefinitionRead.model_validate(field)
 
 
@@ -196,7 +309,7 @@ async def update_field(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """Update a field definition."""
+    """Update a field definition. Bumps schema_version of the parent type."""
     result = await db.execute(select(FieldDefinition).where(FieldDefinition.id == field_id))
     field = result.scalar_one_or_none()
     if not field:
@@ -206,7 +319,11 @@ async def update_field(
     for key, value in update_data.items():
         setattr(field, key, value)
 
-    await db.commit()
+    await db.flush()
+
+    # Bump schema version so affected documents know they need re-analysis
+    doc_type = await _load_doc_type_or_404(field.document_type_id, db)
+    await _bump_schema_version(doc_type, db)
     await db.refresh(field)
 
     logger.info(f"Field updated: {field.field_name} (by {admin.email})")
@@ -219,15 +336,23 @@ async def delete_field(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """Delete a field definition."""
+    """Delete a field definition. Bumps schema_version of the parent type."""
     result = await db.execute(select(FieldDefinition).where(FieldDefinition.id == field_id))
     field = result.scalar_one_or_none()
     if not field:
         raise HTTPException(status_code=404, detail="Feld nicht gefunden.")
 
-    logger.info(f"Field deleted: {field.field_name} (by {admin.email})")
+    doc_type_id = field.document_type_id
+    field_name = field.field_name
+
     await db.delete(field)
-    await db.commit()
+    await db.flush()
+
+    # Bump schema version
+    doc_type = await _load_doc_type_or_404(doc_type_id, db)
+    await _bump_schema_version(doc_type, db)
+
+    logger.info(f"Field deleted: {field_name} from type '{doc_type.name}' (by {admin.email})")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -388,6 +513,7 @@ async def list_deleted_documents(
             dt_result = await db.get(DocumentType, doc.document_type_id)
             if dt_result:
                 doc_read.document_type_name = dt_result.name
+                doc_read.document_type_deprecated = not dt_result.is_active
         if doc.user:
             doc_read.user_email = doc.user.email
         response.append(doc_read)

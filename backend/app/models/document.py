@@ -30,6 +30,8 @@ class Document(SQLModel, table=True):
     extraction_method: str | None = Field(default=None, max_length=20)
     extracted_data: dict | None = Field(default=None, sa_column=Column(JSON))
     error_message: str | None = Field(default=None, sa_column=Column(Text))
+    # Schema-Version zum Zeitpunkt der letzten Analyse (None = nie analysiert)
+    analyzed_schema_version: int | None = Field(default=None)
 
     # Relationships
     user: Optional["User"] = Relationship(back_populates="documents")

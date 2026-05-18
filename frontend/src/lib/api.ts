@@ -97,7 +97,20 @@ export interface DocumentType {
   name: string
   description: string | null
   created_at: string
+  is_active: boolean
+  schema_version: number
   fields: FieldDefinition[]
+}
+
+export interface OutdatedDocumentInfo {
+  id: number
+  filename: string
+  upload_date: string
+  has_manual_corrections: boolean
+}
+
+export interface ReanalyzeResult {
+  triggered: number
 }
 
 export interface Document {
@@ -107,6 +120,8 @@ export interface Document {
   status: 'pending' | 'processing' | 'completed' | 'failed'
   document_type_id: number | null
   document_type_name: string | null
+  document_type_deprecated: boolean
+  needs_reanalysis: boolean
   user_email?: string | null
   raw_text: string | null
   extraction_method?: 'pypdf2' | 'ocr' | null
@@ -154,6 +169,12 @@ export const documentsApi = {
     api.put<Document>(`/documents/${id}`, { extracted_data: extractedData }),
 
   delete: (id: number) => api.delete(`/documents/${id}`),
+
+  /** Documents that need re-analysis due to schema changes (current user). */
+  pendingReanalysis: () => api.get<Document[]>('/documents/pending-reanalysis'),
+
+  /** Trigger re-analysis for a single document. */
+  reanalyzeOne: (id: number) => api.post<Document>(`/documents/${id}/reanalyze`),
 }
 
 // ── Admin ────────────────────────────────────────────────────────────
@@ -164,10 +185,24 @@ export const adminApi = {
   createDocType: (data: { name: string; description?: string; fields?: Array<Omit<FieldDefinition, 'id'>> }) =>
     api.post<DocumentType>('/admin/document-types', data),
 
-  updateDocType: (id: number, data: { name?: string; description?: string }) =>
+  updateDocType: (id: number, data: { name?: string; description?: string; is_active?: boolean }) =>
     api.put<DocumentType>(`/admin/document-types/${id}`, data),
 
-  deleteDocType: (id: number) => api.delete(`/admin/document-types/${id}`),
+  /** Soft-deactivates a document type. Returns affected_documents count. */
+  deactivateDocType: (id: number) =>
+    api.delete<{ message: string; affected_documents: number }>(`/admin/document-types/${id}`),
+
+  /** Re-activate a previously deactivated document type. */
+  reactivateDocType: (id: number) =>
+    api.put<DocumentType>(`/admin/document-types/${id}`, { is_active: true }),
+
+  /** List documents of a type whose schema version is outdated. */
+  getOutdatedDocuments: (id: number) =>
+    api.get<OutdatedDocumentInfo[]>(`/admin/document-types/${id}/outdated-documents`),
+
+  /** Trigger re-analysis for all outdated documents of a type. */
+  reanalyzeDocType: (id: number) =>
+    api.post<ReanalyzeResult>(`/admin/document-types/${id}/reanalyze`),
 
   // Fields
   addField: (docTypeId: number, data: Omit<FieldDefinition, 'id'>) =>
@@ -200,5 +235,6 @@ export const adminApi = {
 
 // ── Document Types (public — for upload dropdown) ────────────────────
 export const publicApi = {
+  /** Active document types only — for upload dropdown. */
   listDocTypes: () => api.get<DocumentType[]>('/documents/types'),
 }

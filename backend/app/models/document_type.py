@@ -19,6 +19,10 @@ class DocumentType(SQLModel, table=True):
     name: str = Field(unique=True, index=True, max_length=100)
     description: str | None = Field(default=None, max_length=500)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # Soft-delete: inaktive Typen sind nicht mehr für neue Uploads verfügbar
+    is_active: bool = Field(default=True)
+    # Schema-Versionierung: wird bei jeder Feldänderung inkrementiert
+    schema_version: int = Field(default=1)
 
     # Relationships
     fields: list["FieldDefinition"] = Relationship(

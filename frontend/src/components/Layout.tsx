@@ -1,8 +1,10 @@
 /**
- * Main layout with sidebar navigation.
+ * Main layout with sidebar navigation and re-analysis notification banner.
  */
+import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
+import { documentsApi } from '../lib/api'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: DashboardIcon },
@@ -14,79 +16,126 @@ export default function Layout() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const location = useLocation()
+  const [outdatedCount, setOutdatedCount] = useState(0)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
 
   const visibleItems = navItems.filter(
     (item) => !item.adminOnly || user?.is_admin
   )
 
+  // Check for outdated documents on mount and route change
+  useEffect(() => {
+    if (!user) return
+    setBannerDismissed(false)
+    documentsApi.pendingReanalysis()
+      .then(({ data }) => setOutdatedCount(data.length))
+      .catch(() => {})
+  }, [user, location.pathname])
+
+  const showBanner = outdatedCount > 0 && !bannerDismissed
+
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-surface-900 border-r border-surface-800 flex flex-col">
-        {/* Logo */}
-        <div className="p-5 border-b border-surface-800">
-          <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-lg bg-brand-500/20 border border-brand-500/30 flex items-center justify-center group-hover:bg-brand-500/30 transition-colors">
-              {/* TODO: Phase 5 — Replace inline SVG with proper icon component */}
-              <svg className="w-5 h-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm3.75 11.625a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold bg-gradient-to-r from-brand-300 to-accent-400 bg-clip-text text-transparent">
-              DocuMind
+    <div className="min-h-screen flex flex-col">
+      {/* Re-analysis notification banner */}
+      {showBanner && (
+        <div className="flex items-center justify-between gap-4 px-5 py-3 bg-amber-500/15 border-b border-amber-500/30 text-amber-300 text-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <svg className="w-4 h-4 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            <span>
+              <strong>{outdatedCount} {outdatedCount === 1 ? 'Dokument wurde' : 'Dokumente wurden'}</strong> durch Schema-Änderungen veraltet.
+              Starten Sie die Neu-Analyse im Dashboard.
             </span>
-          </Link>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1">
-          {visibleItems.map((item) => {
-            const isActive = location.pathname === item.path
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-brand-600/20 text-brand-300 border border-brand-500/20'
-                    : 'text-surface-200 hover:bg-surface-800 hover:text-surface-50'
-                }`}
-              >
-                <Icon active={isActive} />
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* User info + logout */}
-        <div className="p-4 border-t border-surface-800">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-brand-600/30 flex items-center justify-center text-brand-300 text-sm font-bold">
-              {user?.email?.[0]?.toUpperCase() ?? '?'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-surface-100 truncate">{user?.email}</p>
-              {user?.is_admin && (
-                <span className="text-xs text-accent-400">Admin</span>
-              )}
-            </div>
           </div>
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-surface-200 hover:bg-surface-800 hover:text-surface-50 transition-colors cursor-pointer"
-          >
-            <LogoutIcon />
-            Abmelden
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              to="/"
+              onClick={() => setBannerDismissed(true)}
+              className="px-3 py-1 rounded-md bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-xs font-medium transition-colors"
+            >
+              Zum Dashboard →
+            </Link>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              className="p-1 rounded hover:bg-amber-500/20 transition-colors cursor-pointer"
+              title="Schließen"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
-      </aside>
+      )}
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
+      <div className="flex flex-1">
+        {/* Sidebar */}
+        <aside className="w-64 bg-surface-900 border-r border-surface-800 flex flex-col shrink-0">
+          {/* Logo */}
+          <div className="p-5 border-b border-surface-800">
+            <Link to="/" className="flex items-center gap-3 group">
+              <div className="w-9 h-9 rounded-lg bg-brand-500/20 border border-brand-500/30 flex items-center justify-center group-hover:bg-brand-500/30 transition-colors">
+                <svg className="w-5 h-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm3.75 11.625a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                </svg>
+              </div>
+              <span className="text-lg font-bold bg-gradient-to-r from-brand-300 to-accent-400 bg-clip-text text-transparent">
+                DocuMind
+              </span>
+            </Link>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 p-3 space-y-1">
+            {visibleItems.map((item) => {
+              const isActive = location.pathname === item.path
+              const Icon = item.icon
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-brand-600/20 text-brand-300 border border-brand-500/20'
+                      : 'text-surface-200 hover:bg-surface-800 hover:text-surface-50'
+                  }`}
+                >
+                  <Icon active={isActive} />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* User info + logout */}
+          <div className="p-4 border-t border-surface-800">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-full bg-brand-600/30 flex items-center justify-center text-brand-300 text-sm font-bold">
+                {user?.email?.[0]?.toUpperCase() ?? '?'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-surface-100 truncate">{user?.email}</p>
+                {user?.is_admin && (
+                  <span className="text-xs text-accent-400">Admin</span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-surface-200 hover:bg-surface-800 hover:text-surface-50 transition-colors cursor-pointer"
+            >
+              <LogoutIcon />
+              Abmelden
+            </button>
+          </div>
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

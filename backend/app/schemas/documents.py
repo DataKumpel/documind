@@ -18,6 +18,9 @@ class DocumentRead(BaseModel):
     extraction_method: str | None = None
     extracted_data: dict | None = None
     error_message: str | None = None
+    # Schema-Status-Flags (vom Router gesetzt, nicht aus DB)
+    document_type_deprecated: bool = False   # Typ wurde deaktiviert
+    needs_reanalysis: bool = False           # Schema-Version veraltet
 
     model_config = {"from_attributes": True}
 

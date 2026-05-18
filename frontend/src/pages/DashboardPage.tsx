@@ -7,6 +7,8 @@ import { useDocumentStore } from '../stores/documentStore'
 import { useAuthStore } from '../stores/authStore'
 import StatusBadge from '../components/ui/StatusBadge'
 import UploadDialog from '../components/UploadDialog'
+import { documentsApi } from '../lib/api'
+import toast from 'react-hot-toast'
 
 export default function DashboardPage() {
   const documents = useDocumentStore((s) => s.documents)
@@ -19,6 +21,7 @@ export default function DashboardPage() {
 
   const [showUpload, setShowUpload] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [reanalyzingId, setReanalyzingId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchDocuments()
@@ -38,6 +41,19 @@ export default function DashboardPage() {
     await deleteDocument(id)
     setDeletingId(null)
   }, [deleteDocument])
+
+  const handleReanalyzeOne = useCallback(async (id: number) => {
+    setReanalyzingId(id)
+    try {
+      await documentsApi.reanalyzeOne(id)
+      toast.success('Neu-Analyse gestartet.')
+      await fetchDocuments()
+    } catch {
+      toast.error('Neu-Analyse konnte nicht gestartet werden.')
+    } finally {
+      setReanalyzingId(null)
+    }
+  }, [fetchDocuments])
 
   // Stats
   const stats = {
@@ -118,8 +134,20 @@ export default function DashboardPage() {
                       </span>
                     </Link>
                   </td>
-                  <td className="py-3 px-4 text-sm text-surface-200">
-                    {doc.document_type_name ?? '—'}
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-surface-200">{doc.document_type_name ?? '—'}</span>
+                      {doc.document_type_deprecated && (
+                        <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-orange-500/15 text-orange-400 border border-orange-500/25">
+                          Veraltet
+                        </span>
+                      )}
+                      {doc.needs_reanalysis && (
+                        <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/25">
+                          Neu analysieren
+                        </span>
+                      )}
+                    </div>
                   </td>
                   {user?.is_admin && (
                     <td className="py-3 px-4 text-sm text-surface-200 truncate max-w-[150px]" title={doc.user_email || ''}>
@@ -137,6 +165,21 @@ export default function DashboardPage() {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {doc.needs_reanalysis && (
+                        <button
+                          onClick={() => handleReanalyzeOne(doc.id)}
+                          disabled={reanalyzingId === doc.id}
+                          className="p-1.5 rounded-md hover:bg-yellow-500/20 text-yellow-400 hover:text-yellow-300 transition-colors cursor-pointer disabled:opacity-50"
+                          title="Neu analysieren"
+                        >
+                          <svg
+                            className={`w-4 h-4 ${reanalyzingId === doc.id ? 'animate-spin' : ''}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                          </svg>
+                        </button>
+                      )}
                       <Link
                         to={`/documents/${doc.id}`}
                         className="p-1.5 rounded-md hover:bg-surface-700 text-surface-200 hover:text-surface-50 transition-colors"

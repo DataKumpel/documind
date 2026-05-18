@@ -1,6 +1,7 @@
 """Admin schemas: document types and field definitions."""
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -48,15 +49,35 @@ class DocumentTypeRead(BaseModel):
     name: str
     description: str | None
     created_at: datetime
+    is_active: bool
+    schema_version: int
     fields: list[FieldDefinitionRead] = []
 
     model_config = {"from_attributes": True}
 
 
 class DocumentTypeUpdate(BaseModel):
-    """Update a document type."""
+    """Update a document type's metadata or activation state."""
     name: str | None = Field(default=None, min_length=1, max_length=100)
     description: str | None = None
+    is_active: bool | None = None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# RE-ANALYSE SCHEMAS
+# ═══════════════════════════════════════════════════════════════════════
+
+class OutdatedDocumentInfo(BaseModel):
+    """Info about a document that needs re-analysis."""
+    id: int
+    filename: str
+    upload_date: datetime
+    has_manual_corrections: bool  # True wenn extracted_data manuell geändert wurde
+
+
+class ReanalyzeResult(BaseModel):
+    """Result of triggering a bulk re-analysis."""
+    triggered: int  # Anzahl gestarteter Re-Analysen
 
 
 # ═══════════════════════════════════════════════════════════════════════

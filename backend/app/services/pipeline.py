@@ -9,11 +9,18 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..database import async_session
 from ..models import Document
 from .ai_service import analyze_document, load_document_type_with_fields
 from .extraction import extract_text
 
 logger = logging.getLogger(__name__)
+
+
+async def _run_pipeline_background(document_id: int) -> None:
+    """Run the processing pipeline in a separate async task with its own DB session."""
+    async with async_session() as db:
+        await process_document(document_id, db)
 
 
 async def _mark_processing(document: Document, db: AsyncSession) -> None:
@@ -46,12 +53,15 @@ async def _run_ai_analysis(document: Document, text: str, db: AsyncSession) -> N
 
     if not doc_type.fields:
         document.extracted_data = {}
+        document.analyzed_schema_version = doc_type.schema_version
         logger.warning(f"Document type '{doc_type.name}' has no fields defined.")
         return
 
     extracted_data = await analyze_document(text, doc_type)
     document.extracted_data = extracted_data
-    logger.info(f"AI extraction complete: {list(extracted_data.keys())}")
+    # Merke die Schema-Version der aktuellen Analyse
+    document.analyzed_schema_version = doc_type.schema_version
+    logger.info(f"AI extraction complete: {list(extracted_data.keys())} (schema_v{doc_type.schema_version})")
 
 
 async def _mark_completed(document: Document, db: AsyncSession) -> None:
