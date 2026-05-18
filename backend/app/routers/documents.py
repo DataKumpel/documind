@@ -82,6 +82,7 @@ async def upload_document(
         document_type_id=document_type_id,
         filename=file.filename,
         filepath=str(filepath),
+        file_size=len(content),
         status="pending",
     )
     db.add(document)
@@ -110,6 +111,7 @@ async def list_documents(
         result = await db.execute(
             select(Document)
             .options(selectinload(Document.user))
+            .where(not Document.is_deleted)
             .order_by(Document.upload_date.desc())
         )
     else:
@@ -117,6 +119,7 @@ async def list_documents(
             select(Document)
             .options(selectinload(Document.user))
             .where(Document.user_id == current_user.id)
+            .where(not Document.is_deleted)
             .order_by(Document.upload_date.desc())
         )
 
@@ -258,14 +261,10 @@ async def delete_document(
     if document.user_id != current_user.id and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Kein Zugriff auf dieses Dokument.")
 
-    # Delete file from disk
-    filepath = Path(document.filepath)
-    if filepath.exists():
-        filepath.unlink()
-        logger.info(f"File deleted: {filepath}")
-
-    logger.info(f"Document {document_id} deleted by {current_user.email}")
-    await db.delete(document)
+    # Soft delete
+    document.is_deleted = True
     await db.commit()
+
+    logger.info(f"Document {document_id} soft deleted by {current_user.email}")
 
 

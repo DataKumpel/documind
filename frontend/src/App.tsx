@@ -12,6 +12,7 @@ import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import DocumentPage from './pages/DocumentPage'
 import AdminPage from './pages/AdminPage'
+import AdminUsersPage from './pages/AdminUsersPage'
 
 import { Toaster } from 'react-hot-toast'
 
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/documents/:id" element={<DocumentPage />} />
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
         </Route>
       </Route>

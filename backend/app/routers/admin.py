@@ -11,16 +11,22 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from ..database import get_db
-from ..models import DocumentType, FieldDefinition, User
+from ..models import Document, DocumentType, FieldDefinition, User
 from ..schemas.admin import (
+    AdminDatabaseStats,
+    AdminUserRead,
     DocumentTypeCreate,
     DocumentTypeRead,
     DocumentTypeUpdate,
     FieldDefinitionCreate,
     FieldDefinitionRead,
     FieldDefinitionUpdate,
+    TempPasswordUpdate,
 )
-from ..services.auth_service import get_current_admin
+from ..schemas.documents import DocumentRead
+from ..services.auth_service import get_current_admin, hash_password
+from sqlalchemy import func
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -222,4 +228,185 @@ async def delete_field(
 
     logger.info(f"Field deleted: {field.field_name} (by {admin.email})")
     await db.delete(field)
+    await db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# USER MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/users")
+async def list_users(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """List all users with their statistics."""
+    # Get all users
+    users_result = await db.execute(select(User).order_by(User.id))
+    users = users_result.scalars().all()
+
+    # Calculate global stats
+    total_users = len(users)
+    
+    docs_result = await db.execute(select(Document).where(not Document.is_deleted))
+    documents = docs_result.scalars().all()
+    total_documents = len(documents)
+    total_database_bytes = sum(doc.file_size for doc in documents)
+
+    # Calculate per-user stats
+    user_stats = []
+    for user in users:
+        user_docs = [d for d in documents if d.user_id == user.id]
+        doc_count = len(user_docs)
+        upload_bytes = sum(d.file_size for d in user_docs)
+        percentage = (upload_bytes / total_database_bytes * 100) if total_database_bytes > 0 else 0.0
+
+        user_stats.append(AdminUserRead(
+            id=user.id,
+            email=user.email,
+            is_admin=user.is_admin,
+            is_active=user.is_active,
+            created_at=user.created_at,
+            document_count=doc_count,
+            total_upload_bytes=upload_bytes,
+            percentage_of_total_size=round(percentage, 2)
+        ))
+
+    return {
+        "users": user_stats,
+        "stats": AdminDatabaseStats(
+            total_users=total_users,
+            total_documents=total_documents,
+            total_database_bytes=total_database_bytes
+        )
+    }
+
+
+@router.post("/users/{user_id}/temp-password")
+async def set_temp_password(
+    user_id: int,
+    data: TempPasswordUpdate,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Assign a temporary password to a user."""
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+
+    user.hashed_password = hash_password(data.new_password)
+    await db.commit()
+    logger.info(f"Temporary password set for user {user.email} by {admin.email}")
+    return {"message": "Passwort erfolgreich geändert."}
+
+
+@router.put("/users/{user_id}/toggle-active")
+async def toggle_user_active(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Activate or deactivate a user."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Sie können sich nicht selbst deaktivieren.")
+        
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+
+    user.is_active = not user.is_active
+    await db.commit()
+    logger.info(f"User {user.email} is_active set to {user.is_active} by {admin.email}")
+    return {"is_active": user.is_active}
+
+
+@router.put("/users/{user_id}/toggle-admin")
+async def toggle_user_admin(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Promote or demote a user to/from admin."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Sie können sich nicht selbst die Admin-Rechte entziehen.")
+        
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Benutzer nicht gefunden.")
+
+    user.is_admin = not user.is_admin
+    await db.commit()
+    logger.info(f"User {user.email} is_admin set to {user.is_admin} by {admin.email}")
+    return {"is_admin": user.is_admin}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# DELETED DOCUMENTS MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════
+
+@router.get("/documents/deleted", response_model=list[DocumentRead])
+async def list_deleted_documents(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """List all soft-deleted documents."""
+    result = await db.execute(
+        select(Document)
+        .options(selectinload(Document.user))
+        .where(Document.is_deleted)
+        .order_by(Document.upload_date.desc())
+    )
+    documents = result.scalars().all()
+    
+    response = []
+    for doc in documents:
+        doc_read = DocumentRead.model_validate(doc)
+        if doc.document_type_id:
+            dt_result = await db.get(DocumentType, doc.document_type_id)
+            if dt_result:
+                doc_read.document_type_name = dt_result.name
+        if doc.user:
+            doc_read.user_email = doc.user.email
+        response.append(doc_read)
+
+    return response
+
+
+@router.post("/documents/{doc_id}/restore", response_model=DocumentRead)
+async def restore_document(
+    doc_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Restore a soft-deleted document."""
+    document = await db.get(Document, doc_id)
+    if not document or not document.is_deleted:
+        raise HTTPException(status_code=404, detail="Gelöschtes Dokument nicht gefunden.")
+
+    document.is_deleted = False
+    await db.commit()
+    await db.refresh(document)
+    logger.info(f"Document {doc_id} restored by {admin.email}")
+    return DocumentRead.model_validate(document)
+
+
+@router.delete("/documents/{doc_id}/hard", status_code=status.HTTP_204_NO_CONTENT)
+async def hard_delete_document(
+    doc_id: int,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Permanently delete a document and its file."""
+    document = await db.get(Document, doc_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden.")
+
+    # Delete file from disk
+    filepath = Path(document.filepath)
+    if filepath.exists():
+        filepath.unlink()
+        logger.info(f"File physically deleted: {filepath}")
+
+    logger.info(f"Document {doc_id} permanently deleted by {admin.email}")
+    await db.delete(document)
     await db.commit()

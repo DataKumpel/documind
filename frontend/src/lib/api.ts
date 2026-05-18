@@ -51,6 +51,7 @@ export interface User {
   id: number
   email: string
   is_admin: boolean
+  is_active: boolean
   created_at: string
 }
 
@@ -58,6 +59,28 @@ export interface TokenResponse {
   access_token: string
   token_type: string
   user: User
+}
+
+export interface AdminUserStats {
+  id: number
+  email: string
+  is_admin: boolean
+  is_active: boolean
+  created_at: string
+  document_count: number
+  total_upload_bytes: number
+  percentage_of_total_size: number
+}
+
+export interface AdminDatabaseStats {
+  total_users: number
+  total_documents: number
+  total_database_bytes: number
+}
+
+export interface AdminUsersResponse {
+  users: AdminUserStats[]
+  stats: AdminDatabaseStats
 }
 
 export interface FieldDefinition {
@@ -154,6 +177,25 @@ export const adminApi = {
     api.put<FieldDefinition>(`/admin/fields/${fieldId}`, data),
 
   deleteField: (fieldId: number) => api.delete(`/admin/fields/${fieldId}`),
+
+  // Users
+  listUsers: () => api.get<AdminUsersResponse>('/admin/users'),
+
+  setTempPassword: (userId: number, newPassword: string) => 
+    api.post(`/admin/users/${userId}/temp-password`, { new_password: newPassword }),
+
+  toggleUserActive: (userId: number) => 
+    api.put<{ is_active: boolean }>(`/admin/users/${userId}/toggle-active`),
+
+  toggleUserAdmin: (userId: number) => 
+    api.put<{ is_admin: boolean }>(`/admin/users/${userId}/toggle-admin`),
+
+  // Deleted Documents
+  listDeletedDocuments: () => api.get<Document[]>('/admin/documents/deleted'),
+
+  restoreDocument: (docId: number) => api.post<Document>(`/admin/documents/${docId}/restore`),
+
+  hardDeleteDocument: (docId: number) => api.delete(`/admin/documents/${docId}/hard`),
 }
 
 // ── Document Types (public — for upload dropdown) ────────────────────

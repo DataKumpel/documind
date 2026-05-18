@@ -6,7 +6,8 @@ import { useAuthStore } from '../stores/authStore'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: DashboardIcon },
-  { path: '/admin', label: 'Admin', icon: AdminIcon, adminOnly: true },
+  { path: '/admin', label: 'Dokumenttypen', icon: AdminIcon, adminOnly: true },
+  { path: '/admin/users', label: 'Benutzerverwaltung', icon: UsersIcon, adminOnly: true },
 ]
 
 export default function Layout() {
@@ -113,6 +114,14 @@ function LogoutIcon() {
   return (
     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+    </svg>
+  )
+}
+
+function UsersIcon({ active }: { active?: boolean }) {
+  return (
+    <svg className={`w-5 h-5 ${active ? 'text-brand-400' : 'text-surface-200'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
     </svg>
   )
 }

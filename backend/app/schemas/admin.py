@@ -57,3 +57,31 @@ class DocumentTypeUpdate(BaseModel):
     """Update a document type."""
     name: str | None = Field(default=None, min_length=1, max_length=100)
     description: str | None = None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# USER MANAGEMENT SCHEMAS
+# ═══════════════════════════════════════════════════════════════════════
+
+class AdminUserRead(BaseModel):
+    """User details with stats for admin."""
+    id: int
+    email: str
+    is_admin: bool
+    is_active: bool
+    created_at: datetime
+    document_count: int = 0
+    total_upload_bytes: int = 0
+    percentage_of_total_size: float = 0.0
+
+
+class AdminDatabaseStats(BaseModel):
+    """Global database stats."""
+    total_users: int
+    total_documents: int
+    total_database_bytes: int
+
+
+class TempPasswordUpdate(BaseModel):
+    """Schema for assigning a temporary password."""
+    new_password: str = Field(min_length=6, max_length=100)

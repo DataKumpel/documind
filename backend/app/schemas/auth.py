@@ -18,10 +18,11 @@ class UserLogin(BaseModel):
 
 
 class UserRead(BaseModel):
-    """Public user info (no password)."""
+    """User profile response."""
     id: int
     email: str
     is_admin: bool
+    is_active: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}

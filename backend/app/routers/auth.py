@@ -70,6 +70,12 @@ async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
             detail="Ungültige E-Mail oder Passwort.",
         )
 
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account wurde deaktiviert.",
+        )
+
     logger.info(f"User logged in: {user.email}")
 
     token = create_access_token(user.id, user.email, user.is_admin)

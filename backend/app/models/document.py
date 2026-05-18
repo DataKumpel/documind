@@ -24,6 +24,8 @@ class Document(SQLModel, table=True):
     filepath: str = Field(max_length=500)
     upload_date: datetime = Field(default_factory=datetime.utcnow)
     status: str = Field(default="pending", max_length=20)  # pending | processing | completed | failed
+    file_size: int = Field(default=0)
+    is_deleted: bool = Field(default=False)
     raw_text: str | None = Field(default=None, sa_column=Column(Text))
     extraction_method: str | None = Field(default=None, max_length=20)
     extracted_data: dict | None = Field(default=None, sa_column=Column(JSON))
