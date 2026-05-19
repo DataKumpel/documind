@@ -182,3 +182,13 @@ das Backend läuft.
   und Dokumente können später erneut verarbeitet werden.
 - Bei leerem Text-Output aus dem OCR-Prozess wird ein entsprechender Fehler
   geloggt.
+
+## Ausblick: Deployment in Produktion (Kubernetes)
+
+Um das Projekt aus der lokalen Docker-Umgebung in ein produktives **Kubernetes (K8s)** Setup zu überführen, sind folgende architektonische Schritte geplant:
+
+- **Frontend-Optimierung:** Umstellung auf einen Multi-Stage Docker-Build (Build mit Node, Auslieferung via Nginx) anstelle des Vite Dev-Servers.
+- **Ressourcen & Skalierung:** Frontend und Backend werden als Kubernetes **Deployments** konfiguriert. Konfiguration (Env-Variablen) und Secrets werden über **ConfigMaps** und **Secrets** verwaltet.
+- **Persistenz:** Die PostgreSQL Datenbank, Ollama-Modelle und Dateiuploads werden über **StatefulSets** und **PersistentVolumeClaims (PVC)** angebunden oder (in Cloud-Umgebungen) an Managed Services wie AWS RDS und S3 delegiert.
+- **Routing:** Ein **Ingress Controller** fungiert als Reverse Proxy für SSL-Terminierung und Routing zwischen Frontend- und Backend-Services.
+- **Hardware-Anforderungen (LLM):** Um eine angemessene Inferenz-Geschwindigkeit zu gewährleisten, erfordert das Deployment von Ollama Kubernetes-Nodes mit GPU-Unterstützung (z.B. via NVIDIA Device Plugin).
